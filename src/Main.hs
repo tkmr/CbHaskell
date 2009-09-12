@@ -3,6 +3,8 @@ import CfParser
 import Text.ParserCombinators.Parsec
 import Test.QuickCheck
 
+main = do putStr "hello"
+    
 run :: Show a => Parser a -> String -> IO ()
 run p input = case (parse p "" input) of
                 Left err -> do { putStr "parse error at "

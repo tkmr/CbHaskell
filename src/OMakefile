@@ -1,0 +1,13 @@
+HSC = ghc
+#	$(HSC) --make -hidir=../lib/ -odir=../lib/ $<
+
+HaskellProgram(program, files) =
+	file_name = $(addsuffix .hs, $(files))
+
+	$(program): $(file_name)
+		$(HSC) --make -hidir=../lib/ -odir=../lib/ -o $(program) $+
+
+	value $(program)
+
+.DEFAULT: $(HaskellProgram main, Main CfParser)
+
