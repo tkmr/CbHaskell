@@ -1,0 +1,6 @@
+*~
+*.o
+*.hi
+*.omc
+**/.omakedb
+**/.omakedb.lock

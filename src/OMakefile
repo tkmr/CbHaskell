@@ -9,5 +9,5 @@ HaskellProgram(program, files) =
 
 	value $(program)
 
-.DEFAULT: $(HaskellProgram main, Main CfParser)
+.DEFAULT: $(HaskellProgram ../bin/main, Main CfParser)
 
