@@ -3,15 +3,45 @@ module CfDataType where
 import Control.Monad
 import Data.List
 
----Top definition
+---Top definition:
 data TopDefine = TopDefine [Definition]
 
-data Definition = DefFun 
-                | DefVar
-                | DefConst
+data Definition = DefineFun DefFun
+                | DefineVar DefVar
+                | DefConst  
                 | DefStruct
                 | DefUnion
                 | DefType
+                  deriving Show
+
+---defvar:
+data DefVar = DefVar StaticProp TypeName Name (Maybe Expression)
+instance Show DefVar where
+    show (DefVar isstatic typename name value) = (show isstatic) ++ typename ++ " " ++ name ++ (expOrEnd value)
+
+---deffun:                                                 
+data DefFun = DefFun Bool TypeName Name FuncParams Block
+instance Show DefFun where
+    show (DefFun isstatic typename name params body) = (show isstatic) ++ typename ++ " " ++ name ++ "(" ++ (show params) ++ ")" ++ show body
+        
+data FuncParams = VoidParams
+                | FixedParams [Param]
+                | VariableParams [Param]
+instance Show FuncParams where
+    show (VoidParams)            = "void"
+    show (FixedParams params)    = joinStr ", " $ map show params
+    show (VariableParams params) = joinStr ", " $ (map show params) ++ ["..."]
+
+data Param = Param TypeName Name
+instance Show Param where
+    show (Param typename name) = typename ++ " " ++ name
+
+
+---Sub definitions of Top define:    
+data Block = Block [DefVar] [Statement]
+instance Show Block where
+    show (Block vars stmts) = (allShowNewline vars) ++ "\n\n" ++ (allShowNewline stmts)
+    
     
 ---ImportStatement------
 data ImportStatements = ImportStatements [ImportStatement]
@@ -23,13 +53,11 @@ instance Show ImportStatements where
 
 instance Show ImportStatement where
     show (ImportStatement []) = ""
-    show (ImportStatement xs) = "import " ++ (join "." xs) ++ ";"
-        where
-          join sep xs = foldl (++) "" $ intersperse sep xs
+    show (ImportStatement xs) = "import " ++ (joinStr "." xs) ++ ";"
 
 ---Statement------------
-data Statement = IfStatement { if_cont::Expression, if_then::Expression, if_else::Expression }
-               | WhileStatement { while_cont::Expression, while_exps::[Expression] }
+data Statement = IfStatement { if_cont::Expression, if_then::Block, if_else::Block }
+               | WhileStatement { while_cont::Expression, while_body::Block }
                  deriving Show
 
 ---Expression----------
@@ -64,5 +92,20 @@ instance Terms Int where
 ---Variable-----------
 type Name = String               
 
+type TypeName = String
 
 
+----misc-------------
+data StaticProp = StaticProp Bool
+    
+instance Show StaticProp where
+    show (StaticProp static) = case static of
+                                 True -> "static "
+                                 False -> ""
+                  
+expOrEnd (Nothing  ) = ";"
+expOrEnd (Just  exp) = " = " ++ (show exp) ++ ";"
+
+joinStr sep xs = foldl (++) "" $ intersperse sep xs
+
+allShowNewline lists = joinStr "\n" $ map show lists

@@ -9,14 +9,16 @@ import System.Random
 import Control.Monad
 
 main = do
-  expResult <- parserTest expressionParser expressionGenerator
-  impResult <- parserTest impStatementsParser impStatementsGenerator
+  expRes    <- parserTest expressionParser (valid::(Gen Expression))
+  impRes    <- parserTest impStatementsParser (valid::(Gen ImportStatements))
+  defvarRes <- parserTest defvarsParser (valid::(Gen DefVar))
                
-  notify $ ((isNotError impResult) && (isNotError expResult))
+  notify $ ((isNotError impRes) && (isNotError expRes))
 
   
 parserTest parser generator = do
   exp <- generateN 1 generator
+  putStr $ show exp ++ "\n"
   res <- return $ tryParse exp
   putStr $ (show res) ++ "\n"
   return res

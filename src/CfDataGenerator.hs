@@ -4,41 +4,75 @@ import CfDataType
 import Test.QuickCheck
 import System.Random
 import Control.Monad
+import Data.Maybe
 import Data.List
 
----import
-impStatementsGenerator :: Gen ImportStatements
-impStatementsGenerator = do
-  stA <- genImpStmt
-  stB <- genImpStmt
-  stC <- genImpStmt
-  return $ ImportStatements [stA, stB, stC]
-         
-genImpStmt :: Gen ImportStatement
-genImpStmt = do
-  name <- rndStrGen "" 10
-  return $ ImportStatement [name, name, name]
+class Valid a where
+    valid :: Gen a
 
 instance Valid ImportStatements where
-    valid = impStatementsGenerator
+    valid = liftM ImportStatements $ vectorOf 3 (valid::(Gen ImportStatement))
 
---exp         
-expressionGenerator :: Gen Expression
-expressionGenerator = do
-  e <- valid
-  return e
+instance Valid ImportStatement where
+    valid = liftM ImportStatement $ vectorOf 3 (valid::(Gen String))
 
+instance Valid DefVar where
+    valid = do name     <- valid
+               typename <- valid
+               exp      <- valid
+               return $ DefVar True typename name (Just exp)
+
+instance Valid DefFun where
+    valid = liftM DefFun valid valid valid valid valid
+
+instance Valid FuncParams where
+    valid = oneof [ liftM VoidParams
+                  , liftM FixedParams $ vectorOf 3 (valid::(Gen Param))
+                  , liftM VariableParams $ vectorOf 3 (valid::(Gen Param))
+                  ]
+
+instance Valid Param where
+    valid = liftM2 Param valid valid
+
+instance Valid Block where
+    valid = liftM2 Block (listOf (valid::(Gen DefVar))) (listOf (valid::(Gen Statement)))
+
+instance Valid Statement where
+    valid = oneof [ listM3 IfStatement valid valid valid ]
+            
 instance Valid Expression where
     valid = oneof [ liftM2 AssignExp valid valid
                   , liftM TermExp valid
                   ]
 
---term
 instance Valid Term where
-    valid = oneof [ liftM NumberTerm valid ]
+    valid = liftM NumberTerm valid
+
+instance Valid String where
+    valid = rndStrGen "" 10
+
+instance Valid Int where
+    valid = oneof [ rndIntGen ]            
+
+instance Valid Bool where
+    valid = elements [ True, False]
 
             
 ---for QuickCheck ---------------------------
+listOf :: Gen a -> Gen [a]
+listOf gen = sized $ \n ->
+             do k <- choose (0,n)
+                vectorOf k gen
+
+listOf1 :: Gen a -> Gen [a]
+listOf1 gen = sized $ \n ->
+              do k <- choose (1,1 `max` n)
+                 vectorOf k gen
+
+vectorOf :: Int -> Gen a -> Gen [a]
+vectorOf k gen = sequence [ gen | _ <- [1..k] ]
+
+
 generateN n generator = do
   rnd <- newStdGen
   return $ generate n rnd generator
@@ -54,12 +88,3 @@ rndIntGen = do
   e <- elements [0..1000]
   return e
             
-class Valid a where
-    valid :: Gen a
-
-instance Valid String where
-    valid = rndStrGen "" 10
-
-instance Valid Int where
-    valid = oneof [ rndIntGen ]            
-    
