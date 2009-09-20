@@ -1,6 +1,7 @@
 {-# OPTIONS -XTypeSynonymInstances #-}
 import CfParser
 import CfDataType
+import CfDataGenerator
 import System.Process (runInteractiveProcess)
 import Text.ParserCombinators.Parsec
 import Test.QuickCheck
@@ -9,12 +10,11 @@ import Control.Monad
 
 main = do
   expResult <- parserTest expressionParser expressionGenerator
-  notify $ isNotError expResult         
-         
   impResult <- parserTest impStatementsParser impStatementsGenerator
-  notify $ isNotError impResult  
-         
-         
+               
+  notify $ ((isNotError impResult) && (isNotError expResult))
+
+  
 parserTest parser generator = do
   exp <- generateN 1 generator
   res <- return $ tryParse exp

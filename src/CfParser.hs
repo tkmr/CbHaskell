@@ -66,7 +66,7 @@ assignParser = lexeme(do{ name <- variableParser
                         ; return $ AssignExp name value
                         })
 
-variableParser :: Parser VariableName
+variableParser :: Parser Name
 variableParser = lexeme(do{ name <- identifier
                           ; return name
                           })

@@ -1,10 +1,18 @@
 {-# OPTIONS -XTypeSynonymInstances #-}
 module CfDataType where
-import Test.QuickCheck
-import System.Random
 import Control.Monad
 import Data.List
 
+---Top definition
+data TopDefine = TopDefine [Definition]
+
+data Definition = DefFun 
+                | DefVar
+                | DefConst
+                | DefStruct
+                | DefUnion
+                | DefType
+    
 ---ImportStatement------
 data ImportStatements = ImportStatements [ImportStatement]
 data ImportStatement  = ImportStatement  [String]
@@ -19,28 +27,13 @@ instance Show ImportStatement where
         where
           join sep xs = foldl (++) "" $ intersperse sep xs
 
-instance Valid ImportStatements where
-    valid = impStatementsGenerator
-
-impStatementsGenerator :: Gen ImportStatements
-impStatementsGenerator = do
-  stA <- genImpStmt
-  stB <- genImpStmt
-  stC <- genImpStmt
-  return $ ImportStatements [stA, stB, stC]
-
-genImpStmt :: Gen ImportStatement
-genImpStmt = do
-  name <- rndStrGen "" 10
-  return $ ImportStatement [name, name, name]
-                        
 ---Statement------------
 data Statement = IfStatement { if_cont::Expression, if_then::Expression, if_else::Expression }
                | WhileStatement { while_cont::Expression, while_exps::[Expression] }
                  deriving Show
 
 ---Expression----------
-data Expression = AssignExp { assign_name::VariableName, assign_value::Expression }
+data Expression = AssignExp { assign_name::Name, assign_value::Expression }
                 | TermExp Term
 
 class Expressions a where
@@ -49,11 +42,6 @@ class Expressions a where
 instance Show Expression where
     show (AssignExp name value) = name ++ " = " ++ (show value)
     show (TermExp term) = show term
-
-instance Valid Expression where
-    valid = oneof [ liftM2 AssignExp valid valid
-                  , liftM TermExp valid
-                  ]
                           
 ---Term----------------
 data Term = NumberTerm Number
@@ -63,9 +51,6 @@ class Terms a where
           
 instance Show Term where
     show (NumberTerm num) = show num
-
-instance Valid Term where
-    valid = oneof [ liftM NumberTerm valid ]
                             
 instance Expressions Term where
     toExpression term = TermExp term
@@ -77,35 +62,7 @@ instance Terms Int where
     toTerm i = NumberTerm i
                
 ---Variable-----------
-type VariableName = String               
+type Name = String               
 
-    
----for QuickCheck ---------------------------
-generateN n generator = do
-  rnd <- newStdGen
-  return $ generate n rnd generator
 
-expressionGenerator :: Gen Expression
-expressionGenerator = do
-  e <- valid
-  return e
 
-rndStrGen :: String -> Int -> Gen String
-rndStrGen s 0 = return s
-rndStrGen s n = do
-  e <- elements $ map (:[]) ['a' .. 'z']
-  rndStrGen (s ++ e) (n - 1)
-
-rndIntGen :: Gen Int
-rndIntGen = do
-  e <- elements [0..1000]
-  return e
-            
-class Valid a where
-    valid :: Gen a
-
-instance Valid String where
-    valid = rndStrGen "" 10
-
-instance Valid Int where
-    valid = oneof [ rndIntGen ]            
