@@ -24,6 +24,7 @@ number = do{ ds <- many1 digit
            ; return (read ds)
            }
 
+
 --utils--------------------------------------
 hasStr :: String -> Parser Bool       
 hasStr str = do { result <- option False (do{ string str; return True })
@@ -41,23 +42,27 @@ eqWithExpression = do { try(char '=')
                       ; exp <- expressionParser
                       ; return exp }
 
-commaSepareted :: Parser a -> Parser [a]
-commaSepareted p = do { x <- try(p)
-                      ; do { try(lexeme(char ','))
-                           ; xs <- commaSepareted p                                
-                           ; return (x:xs)
-                           }
-                        <|> return [x]
-                      }
-                   <|> return []
+separetedByChar :: Char -> Parser a -> Parser [a]
+separetedByChar c p = do { x <- try(p)
+                         ; do { try(lexeme(char c))
+                              ; xs <- commaSepareted p
+                              ; return (x:xs)
+                              }
+                           <|> return [x]
+                         }
+                      <|> return []
 
+commaSepareted :: Parser a -> Parser [a]
+commaSepareted = separetedByChar ','
+    
 wrapedChar :: Char -> Char -> Parser a -> Parser a
 wrapedChar s e p = do{ lexeme $ char s
                      ; res <- p
                      ; lexeme $ char e
                      ; return res
                      }
-                        
+
+
 --statements---------------------------------
 impStatementsParser :: Parser ImportStatements
 impStatementsParser = do { imps <- many1 impStatementParser
@@ -81,9 +86,10 @@ namespace = lexeme(do{ name <- identifier
                        <|> return [name]
                      })
 
+            
 --definition---------------------------------
 defvarsParser :: Parser [DefVar]
-defvarsParser = do{ isstatic <- StaticProp $ hasStr "static"
+defvarsParser = do{ isstatic <- hasStr "static"
                   ; whiteSpace
                   ; typename <- identifier
                   ; res      <- commaSepareted $ defvarParser isstatic typename
@@ -95,47 +101,70 @@ defvarParser :: Bool -> String -> Parser DefVar
 defvarParser static typename = lexeme(do{ name <- identifier
                                         ; exp <- tryOrNothing eqWithExpression
                                         ; semi
-                                        ; return $ DefVar static typename name exp
+                                        ; return $ DefVar (StaticProp static) typename name exp
                                         })
 
+                               
 --deffun-----------------------------------                               
 deffunParser :: Parser DefFun
-deffunParser = do{ isstatic <- StaticProp $ hasStr "static"
-                 ; whiteSpace
+deffunParser = do{ isstatic <- lexeme $ hasStr "static"
                  ; typename <- identifier
                  ; name <- identifier
                  ; params <- wrapedChar '(' ')' funcparamParser
                  ; body <- blockParser
-                 ; return $ DefFun isstatic typename name params body
+                 ; return $ DefFun (StaticProp isstatic) typename name params body
                  }
 
 funcparamParser :: Parser FuncParams
 funcparamParser = lexeme(do{ try(string "void")
-                           ; return VoidParams }
-                         <|>
-                         do{ params <- commaSepareted paramParser
-                           ; do{ try(do{ char ','; string "..." })
-                               ; return VariableParams params
-                               }
-                             <|> return FixedParams params
-                           })
+                           ; return VoidParams
+                           }
+                        <|> subparser [])
+    where
+      subparser params = do{ param <- try paramParser
+                           ; do { try $ lexeme $ char ','
+                                ; do{ try $ lexeme $ string "..."
+                                    ; return $ VariableParams $ reverse (param:params)
+                                    }
+                                  <|> subparser (param:params)
+                                }
+                             <|> do{ return $ FixedParams $ reverse (param:params) }
+                           }
 
+--defstruct----------------------------
+defstructParser :: Parser DefStruct
+defstructParser = do{ lexeme $ string "struct"
+                    ; name <- identifier
+                    ; params <- wrapedChar '{' '}' $ separetedByChar ';' paramParser
+                    ; return $ DefStruct name params
+                    }
+
+--defunion----------------------------
+defunionParser :: Parser DefUnion
+defunionParser = do{ lexeme $ string "union"
+                    ; name <- identifier
+                    ; params <- wrapedChar '{' '}' $ separetedByChar ';' paramParser
+                    ; return $ DefUnion name params
+                    }
+
+--utils
 paramParser :: Parser Param
 paramParser = do{ typename <- identifier
                 ; name <- identifier
                 ; return $ Param typename name
                 }
+              <?> "paramParser"
 
 blockParser :: Parser Block
 blockParser = do{ lexeme $ char '{'
-                ; vars <- many1 defvarParser
+                ; vars <- many1 defvarsParser
                 ; stmts <- many1 statementParser
                 ; lexeme $ char '}'
-                ; return $ Block vars stmts
+                ; return $ Block (foldl (++) [] vars) stmts
                 }
 
---statement--------------------------------
 
+--statement--------------------------------
 statementParser :: Parser Statement
 statementParser = do{ try $ lexeme $ string "if"
                     ; exp <- wrapedChar '(' ')' expressionParser
@@ -144,9 +173,16 @@ statementParser = do{ try $ lexeme $ string "if"
                         ; elseblock <- blockParser
                         ; return $ IfStatement exp thenblock elseblock
                         }
-                      <|> return $ IfStatement exp thenblock (Block [] [])
+                      <|>
+                      do{ return $ IfStatement exp thenblock (Block [] []) }
                     }
-                      
+                  <|>
+                  do{ exp <- try $ lexeme $ expressionParser
+                    ; semi
+                    ; return $ ExpStatement exp
+                    }
+
+    
 --expression--------------------------------
 expressionParser :: Parser Expression
 expressionParser = try(assignParser)

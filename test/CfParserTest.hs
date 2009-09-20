@@ -12,8 +12,9 @@ main = do
   expRes    <- parserTest expressionParser (valid::(Gen Expression))
   impRes    <- parserTest impStatementsParser (valid::(Gen ImportStatements))
   defvarRes <- parserTest defvarsParser (valid::(Gen DefVar))
+  deffunRes <- parserTest deffunParser (valid::(Gen DefFun)) 
                
-  notify $ ((isNotError impRes) && (isNotError expRes))
+  notify $ and [impRes, expRes, defvarRes, deffunRes]
 
   
 parserTest parser generator = do
@@ -21,7 +22,7 @@ parserTest parser generator = do
   putStr $ show exp ++ "\n"
   res <- return $ tryParse exp
   putStr $ (show res) ++ "\n"
-  return res
+  return $ isNotError res
     where
       tryParse x = parse parser "" $ show x
 

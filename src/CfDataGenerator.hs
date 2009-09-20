@@ -20,25 +20,28 @@ instance Valid DefVar where
     valid = do name     <- valid
                typename <- valid
                exp      <- valid
-               return $ DefVar True typename name (Just exp)
+               return $ DefVar (StaticProp True) typename name (Just exp)
 
 instance Valid DefFun where
-    valid = liftM DefFun valid valid valid valid valid
+    valid = liftM5 DefFun valid valid valid valid valid
 
 instance Valid FuncParams where
-    valid = oneof [ liftM VoidParams
+    valid = oneof [ elements [VoidParams]
                   , liftM FixedParams $ vectorOf 3 (valid::(Gen Param))
                   , liftM VariableParams $ vectorOf 3 (valid::(Gen Param))
                   ]
 
+instance Valid StaticProp where
+    valid = liftM StaticProp valid
+            
 instance Valid Param where
     valid = liftM2 Param valid valid
 
 instance Valid Block where
-    valid = liftM2 Block (listOf (valid::(Gen DefVar))) (listOf (valid::(Gen Statement)))
+    valid = liftM2 Block (vectorOf 2 (valid::(Gen DefVar))) (elements [ [(ExpStatement $ TermExp $ NumberTerm 10)] ]) --(listOf (valid::(Gen Statement)))
 
 instance Valid Statement where
-    valid = oneof [ listM3 IfStatement valid valid valid ]
+    valid = oneof [ liftM3 IfStatement valid valid valid ]
             
 instance Valid Expression where
     valid = oneof [ liftM2 AssignExp valid valid
@@ -49,7 +52,7 @@ instance Valid Term where
     valid = liftM NumberTerm valid
 
 instance Valid String where
-    valid = rndStrGen "" 10
+    valid = rndStrGen "" 4
 
 instance Valid Int where
     valid = oneof [ rndIntGen ]            
