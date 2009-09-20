@@ -158,12 +158,3 @@
 # OCAML_LIB_FLAGS +=
 #
 # .DEFAULT: $(OCamlProgram $(PROGRAM), $(FILES))
-
-
-HaskellProgram(program, files) =
-	file_name = $(addsuffix .hs, $(files))
-
-	$(program): $(file_name)
-		$(HSC) --make -hidir=../lib/ -odir=../lib/ -o $(program) $+
-
-	value $(program)

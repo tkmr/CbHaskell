@@ -1,4 +1,2 @@
-HSC = ghc
-
-.DEFAULT: $(HaskellProgram ../bin/main, Main CfParser)
+.DEFAULT: $(HaskellProgram ../bin/main, Main.hs CfParser.hs)
 

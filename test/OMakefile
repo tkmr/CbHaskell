@@ -1,0 +1,5 @@
+FILES = $(glob ../src/Cf*.hs)
+HaskellProgram(tester, CfParserTest.hs $(FILES))
+
+.DEFAULT: tester
+	./tester

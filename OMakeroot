@@ -40,6 +40,19 @@ open build/LaTeX
 DefineCommandVars()
 
 #
+# build by GHC
+#
+HSC = ghc
+
+HaskellProgram(program, files) =
+  #file_name = $(addsuffix .hs, $(files))
+
+  $(program): $(files)
+    $(HSC) --make -i../lib\:../src -hidir=../lib/ -odir=../lib/ -o $(program) $+
+
+  value $(program)
+
+#
 # Include the OMakefile in this directory.
 #
 .SUBDIRS: .
