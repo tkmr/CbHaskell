@@ -60,6 +60,18 @@ instance Valid Int where
 instance Valid Bool where
     valid = elements [ True, False]
 
+instance Valid TypeRef where
+    valid = liftM2 TypeRef valid $ listOf1 (valid::(Gen TyperefOption))
+
+instance Valid TyperefBase where
+    valid = elements [VoidType, CharType, ShortType, IntType, LongType, UnsignedCharType, UnsignedShortType
+                     , UnsignedIntType, UnsignedLongType, StructType "tsetstrct", UnionType "testunion", OriginalType "MyTestType"]
+
+instance Valid TyperefOption where
+    valid = oneof [ elements [NonLimitArrayOption, PointerOption]
+                  , liftM LimitedArrayOption valid
+                  , liftM FuncPointerOption valid
+                  ]
             
 ---for QuickCheck ---------------------------
 listOf :: Gen a -> Gen [a]

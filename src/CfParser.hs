@@ -8,7 +8,7 @@ import qualified Text.ParserCombinators.Parsec.Token as P
     
 lexer :: P.TokenParser ()
 lexer = P.makeTokenParser (javaStyle {
-                             reservedNames   = ["return"]
+                             reservedNames   = ["static", "return", "typedef", "struct", "union", "import", "if", "else", "...", "void"]
                            , reservedOpNames = ["="]
                            })
 
@@ -27,7 +27,7 @@ number = do{ ds <- many1 digit
 
 --utils--------------------------------------
 hasStr :: String -> Parser Bool       
-hasStr str = do { result <- option False (do{ string str; return True })
+hasStr str = do { result <- option False (do{ reserved str; return True })
                 ; return result
                 }
 
@@ -45,7 +45,7 @@ eqWithExpression = do { try(char '=')
 separetedByChar :: Char -> Parser a -> Parser [a]
 separetedByChar c p = do { x <- try(p)
                          ; do { try(lexeme(char c))
-                              ; xs <- commaSepareted p
+                              ; xs <- separetedByChar c p
                               ; return (x:xs)
                               }
                            <|> return [x]
@@ -62,6 +62,7 @@ wrapedChar s e p = do{ lexeme $ char s
                      ; return res
                      }
 
+typeRefParser = 
 
 --statements---------------------------------
 impStatementsParser :: Parser ImportStatements
@@ -70,7 +71,7 @@ impStatementsParser = do { imps <- many1 impStatementParser
                          }
                       
 impStatementParser :: Parser ImportStatement
-impStatementParser = lexeme(do{ string "import"
+impStatementParser = lexeme(do{ reserved "import"
                               ; whiteSpace
                               ; names <- namespace
                               ; semi
@@ -104,8 +105,6 @@ defvarParser static typename = lexeme(do{ name <- identifier
                                         ; return $ DefVar (StaticProp static) typename name exp
                                         })
 
-                               
---deffun-----------------------------------                               
 deffunParser :: Parser DefFun
 deffunParser = do{ isstatic <- lexeme $ hasStr "static"
                  ; typename <- identifier
@@ -116,14 +115,14 @@ deffunParser = do{ isstatic <- lexeme $ hasStr "static"
                  }
 
 funcparamParser :: Parser FuncParams
-funcparamParser = lexeme(do{ try(string "void")
+funcparamParser = lexeme(do{ try(reserved "void")
                            ; return VoidParams
                            }
                         <|> subparser [])
     where
       subparser params = do{ param <- try paramParser
                            ; do { try $ lexeme $ char ','
-                                ; do{ try $ lexeme $ string "..."
+                                ; do{ try $ lexeme $ reserved "..."
                                     ; return $ VariableParams $ reverse (param:params)
                                     }
                                   <|> subparser (param:params)
@@ -131,23 +130,29 @@ funcparamParser = lexeme(do{ try(string "void")
                              <|> do{ return $ FixedParams $ reverse (param:params) }
                            }
 
---defstruct----------------------------
 defstructParser :: Parser DefStruct
-defstructParser = do{ lexeme $ string "struct"
+defstructParser = do{ lexeme $ reserved "struct"
                     ; name <- identifier
                     ; params <- wrapedChar '{' '}' $ separetedByChar ';' paramParser
                     ; return $ DefStruct name params
                     }
 
---defunion----------------------------
 defunionParser :: Parser DefUnion
-defunionParser = do{ lexeme $ string "union"
+defunionParser = do{ lexeme $ reserved "union"
                     ; name <- identifier
                     ; params <- wrapedChar '{' '}' $ separetedByChar ';' paramParser
                     ; return $ DefUnion name params
                     }
 
---utils
+deftypeParser :: Parser DefType
+deftypeParser = do{ lexeme $ reserved "typedef"
+                  ; typename <- identifier
+                  ; name <- identifier
+                  ; semi
+                  ; return $ DefType typename name
+                  }
+                           
+--utils---
 paramParser :: Parser Param
 paramParser = do{ typename <- identifier
                 ; name <- identifier
@@ -166,10 +171,10 @@ blockParser = do{ lexeme $ char '{'
 
 --statement--------------------------------
 statementParser :: Parser Statement
-statementParser = do{ try $ lexeme $ string "if"
+statementParser = do{ try $ lexeme $ reserved "if"
                     ; exp <- wrapedChar '(' ')' expressionParser
                     ; thenblock <- blockParser
-                    ; do{ try $ lexeme $ string "else"
+                    ; do{ try $ lexeme $ reserved "else"
                         ; elseblock <- blockParser
                         ; return $ IfStatement exp thenblock elseblock
                         }

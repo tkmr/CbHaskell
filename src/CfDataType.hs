@@ -24,40 +24,44 @@ data Definition = DefineFun DefFun
                 | DefConst  
                 | DefineStruct DefStruct
                 | DefineUnion  DefUnion
-                | DefType
+                | DefineType   DefType
                   deriving Show
 
----defvar:
-data DefVar = DefVar StaticProp TypeName Name (Maybe Expression)
+data DefVar = DefVar StaticProp Type Name (Maybe Expression)
+            
 instance Show DefVar where
     show (DefVar isstatic typename name value) = (show isstatic) ++ typename ++ " " ++ name ++ (expOrEnd value)
 
----deffun:                                                 
-data DefFun = DefFun StaticProp TypeName Name FuncParams Block
+data DefFun = DefFun StaticProp TypeRef Name FuncParams Block
+            
 instance Show DefFun where
     show (DefFun isstatic typename name params body) = (show isstatic) ++ typename ++ " " ++ name ++ "(" ++ (show params) ++ ")" ++ show body
         
---defstruct
 data DefStruct = DefStruct Name [Param] deriving Show
 
---defunion:
 data DefUnion = DefUnion Name [Param] deriving Show
 
+data DefType = DefType TypeRef Name deriving Show
+                           
 
+              
 ---Sub definitions of Top define:
 data FuncParams = VoidParams
                 | FixedParams [Param]
                 | VariableParams [Param]
+                  
 instance Show FuncParams where
     show (VoidParams)            = "void"
     show (FixedParams params)    = joinStr ", " $ map show params
     show (VariableParams params) = joinStr ", " $ (map show params) ++ ["..."]
 
-data Param = Param TypeName Name
+data Param = Param Type Name
+           
 instance Show Param where
     show (Param typename name) = typename ++ " " ++ name
 
 data Block = Block [DefVar] [Statement]
+           
 instance Show Block where
     show (Block vars stmts) = "{\n" ++ (allShowNewline vars) ++ "\n\n" ++ (allShowNewline stmts) ++ "\n}"
     
@@ -66,6 +70,7 @@ instance Show Block where
 data Statement = IfStatement { if_cont::Expression, if_then::Block, if_else::Block }
                | WhileStatement { while_cont::Expression, while_body::Block }
                | ExpStatement Expression
+                 
 instance Show Statement where
     show (ExpStatement exp) = (show exp) ++ ";\n"
 
@@ -94,19 +99,64 @@ instance Show Term where
 instance Expressions Term where
     toExpression term = TermExp term
 
-                        
+
+---Type--------------------
+type Type = TypeRef
+
+data TypeRef = TypeRef TyperefBase [TyperefOption]
+
+data TyperefOption = NonLimitArrayOption
+                   | LimitedArrayOption Int
+                   | PointerOption
+                   | FuncPointerOption [Type]
+
+data TyperefBase = VoidType
+                 | CharType
+                 | ShortType
+                 | IntType
+                 | LongType
+                 | UnsignedCharType
+                 | UnsignedShortType
+                 | UnsignedIntType
+                 | UnsignedLongType
+                 | StructType Name
+                 | UnionType Name
+                 | OriginalType Name
+
+instance Show Typeref where
+    show (Typeref base options) = (show base) ++ (show options)
+
+instance Show TyperefOption where
+    show (NonLimitArrayOption)  = "[]"
+    show (LimitedArrayOption i) = "[" ++ (show i) ++ "]"
+    show (PointerOption)        = "*"
+    show (FuncPointerOption types) = "(" ++ (join ',' $ map show types) ++ ")"
+
+instance Show TyperefBase where
+    show (VoidType)           = "void"
+    show (CharType)           = "char"
+    show (ShortType)          = "short"
+    show (IntType)            = "int"
+    show (LongType)           = "long"
+    show (UnsignedCharType)   = "unsigned char"
+    show (UnsignedShortType)  = "unsigned short"
+    show (UnsignedIntType)    = "unsigned int"
+    show (UnsignedLongType)   = "unsigned long"
+    show (StructType name)    = "struct " ++ name
+    show (UnionType  name)    = "union " ++ name
+    show (OriginalType name)  = name
+                                     
 ---Number--------------
 type Number = Int
 
 instance Terms Int where
     toTerm i = NumberTerm i
+
                
 ---Variable-----------
 type Name = String               
 
-type TypeName = String
-
-
+    
 ----misc-------------
 data StaticProp = StaticProp Bool
     

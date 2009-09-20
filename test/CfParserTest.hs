@@ -9,22 +9,25 @@ import System.Random
 import Control.Monad
 
 main = do
-  expRes    <- parserTest expressionParser (valid::(Gen Expression))
-  impRes    <- parserTest impStatementsParser (valid::(Gen ImportStatements))
-  defvarRes <- parserTest defvarsParser (valid::(Gen DefVar))
-  deffunRes <- parserTest deffunParser (valid::(Gen DefFun)) 
+  exp       <- parserGenTest expressionParser (valid::(Gen Expression))
+  imp       <- parserGenTest impStatementsParser (valid::(Gen ImportStatements))
+  defvar    <- parserGenTest defvarsParser (valid::(Gen DefVar))
+  deffun    <- parserGenTest deffunParser (valid::(Gen DefFun)) 
+  defstruct <- parserTest defstructParser "struct hoge { int x; int y; }"
+  defunion  <- parserTest defunionParser "union hoge { int x; int a; }"
+  deftype   <- parserTest deftypeParser "typedef int NUMBER;"
                
-  notify $ and [impRes, expRes, defvarRes, deffunRes]
+  notify $ and [imp, exp, defvar, deffun, defstruct, defunion, deftype]
 
-  
-parserTest parser generator = do
+parserGenTest parser generator = do
   exp <- generateN 1 generator
-  putStr $ show exp ++ "\n"
-  res <- return $ tryParse exp
+  parserTest parser (show exp)
+         
+parserTest parser str = do
+  putStr $ str ++ "\n"
+  res <- return $ parse parser "" str
   putStr $ (show res) ++ "\n"
   return $ isNotError res
-    where
-      tryParse x = parse parser "" $ show x
 
 ---Util
 runruby message name = runInteractiveProcess "ruby" ["/home/tatsuya/study/ruby/notify_client.rb", "192.168.0.6", "7878", message, name] Nothing Nothing
