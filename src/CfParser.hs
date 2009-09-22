@@ -8,7 +8,7 @@ import qualified Text.ParserCombinators.Parsec.Token as P
     
 lexer :: P.TokenParser ()
 lexer = P.makeTokenParser (javaStyle {
-                             reservedNames   = ["static", "return", "typedef", "struct", "union", "import", "if", "else", "...", "void", "char", "short", "int", "long", "unsigned"]
+                             reservedNames   = ["static", "return", "typedef", "struct", "union", "import", "if", "else", "...", "void", "char", "short", "int", "long", "unsigned", "goto", "break", "continue", "for", "while", "label"]
                            , reservedOpNames = ["="]
                            })
 
@@ -17,7 +17,7 @@ reserved = P.reserved lexer
 lexeme = P.lexeme lexer
 whiteSpace = P.whiteSpace lexer
 identifier = P.identifier lexer
-semi = lexeme(char ';')
+semi = lexeme $ char ';'
        
 number :: Parser Int
 number = do{ ds <- many1 digit
@@ -30,12 +30,6 @@ hasStr :: String -> Parser Bool
 hasStr str = do { result <- option False (do{ reserved str; return True })
                 ; return result
                 }
-
-tryOrNothing :: Parser a -> Parser (Maybe a)
-tryOrNothing p = do { res <- p
-                    ; return $ Just res }
-                 <|>
-                 return Nothing
 
 eqWithExpression = do { try(char '=')
                       ; whiteSpace
@@ -61,6 +55,17 @@ wrapedChar s e p = do{ lexeme $ char s
                      ; lexeme $ char e
                      ; return res
                      }
+
+tryOrDefault :: a -> Parser a -> Parser a
+tryOrDefault def p = try p
+                     <|>
+                     do{ return def }
+
+tryOrNothing :: Parser a -> Parser (Maybe a)
+tryOrNothing p = do { res <- p
+                    ; return $ Just res }
+                 <|>
+                 return Nothing
 
 tryallParser :: [Parser a] -> Parser a
 tryallParser (p:[]) = p
@@ -94,8 +99,7 @@ namespace = lexeme(do{ name <- identifier
             
 --definition---------------------------------
 defvarsParser :: Parser [DefVar]
-defvarsParser = do{ isstatic <- hasStr "static"
-                  ; whiteSpace
+defvarsParser = do{ isstatic <- lexeme $ hasStr "static"
                   ; type_ <- typeRefParser
                   ; res   <- commaSepareted $ defvarParser isstatic type_
                   ; return res
@@ -223,8 +227,8 @@ paramParser = do{ type_ <- typeRefParser
 
 blockParser :: Parser Block
 blockParser = do{ lexeme $ char '{'
-                ; vars <- many1 defvarsParser
-                ; stmts <- many1 statementParser
+                ; vars <- many defvarsParser
+                ; stmts <- many statementParser
                 ; lexeme $ char '}'
                 ; return $ Block (foldl (++) [] vars) stmts
                 }
@@ -232,41 +236,103 @@ blockParser = do{ lexeme $ char '{'
 
 --statement--------------------------------
 statementParser :: Parser Statement
-statementParser = do{ try $ lexeme $ reserved "if"
-                    ; exp <- wrapedChar '(' ')' expressionParser
-                    ; thenblock <- blockParser
-                    ; do{ try $ lexeme $ reserved "else"
-                        ; elseblock <- blockParser
-                        ; return $ IfStatement exp thenblock elseblock
-                        }
-                      <|>
-                      do{ return $ IfStatement exp thenblock (Block [] []) }
-                    }
-                  <|>
-                  do{ exp <- try $ lexeme $ expressionParser
-                    ; semi
-                    ; return $ ExpStatement exp
-                    }
+statementParser = tryallParser [ nullStmtParser
+                               , labelStmtParser
+                               , ifStmtParser
+                               , blockStmtParser
+                               , expStmtParser
+                               , whileStmtParser
+                               , forStmtParser
+                               , breakStmtParser
+                               , contStmtParser
+                               , gotoStmtParser
+                               , returnStmtParser
+                               ]
 
-    
+nullStmtParser = do{ semi
+                   ; return NulllineStatement }
+
+
+labelStmtParser = lexeme $ do{ reserved "label"
+                             ; name <- identifier
+                             ; char ':'
+                             ; return $ LabeledStatement name }
+
+blockStmtParser = do{ b <- blockParser
+                    ; return $ BlockStatement b }
+
+ifStmtParser = do{ lexeme $ reserved "if"
+                 ; exp <- wrapedChar '(' ')' expressionParser
+                 ; thenblock <- statementParser
+                 ; elseblock <- tryOrDefault (NulllineStatement) elsePs
+                 ; return $ IfStatement exp thenblock elseblock }
+    where
+      elsePs = do{ lexeme $ reserved "else"
+                 ; elseblock <- statementParser
+                 ; return elseblock }
+
+expStmtParser = do{ exp <- lexeme $ expressionParser
+                  ; semi
+                  ; return $ ExpStatement exp
+                  }
+
+whileStmtParser = do{ reserved "while"
+                    ; exp <- wrapedChar '(' ')' expressionParser
+                    ; body <- statementParser
+                    ; return $ WhileStatement exp body }
+                             
+forStmtParser = do{ reserved "for"
+                  ; lexeme $ char '('
+                  ; exp1 <- expressionParser
+                  ; semi
+                  ; exp2 <- expressionParser
+                  ; semi
+                  ; exp3 <- expressionParser
+                  ; lexeme $ char ')'
+                  ; body <- statementParser
+                  ; return $ ForStatement exp1 exp2 exp3 body }
+
+breakStmtParser = do{ reserved "break"
+                    ; semi
+                    ; return BreakStatement }
+
+contStmtParser = do{ reserved "continue"
+                   ; semi
+                   ; return ContinueStatement }
+
+gotoStmtParser = do{ reserved "goto"
+                   ; name <- identifier
+                   ; semi
+                   ; return $ GotoStatement name }
+
+returnStmtParser = do{ reserved "return"
+                     ; exp <- tryOrDefault (NullExp) expressionParser
+                     ; semi
+                     ; return $ ReturnStatement exp }
+
 --expression--------------------------------
 expressionParser :: Parser Expression
-expressionParser = try(assignParser)
-                   <|> try(do{ term <- termParser
-                             ; return $ TermExp term
-                             })
+expressionParser = tryallParser [ assignExpParser
+                                , termExpParser
+                                , nullExpParser ]
 
+nullExpParser = do{ reserved "null"
+                  ; return NullExp }
+                   
+termExpParser = do{ term <- termParser
+                  ; return $ TermExp term }
+                   
 termParser :: Parser Term
 termParser = do { x <- try $ numberLiteralParser
-                ; return $ toTerm x
+                ; return $ NumberTerm x
                 }
                    
-assignParser :: Parser Expression
-assignParser = lexeme(do{ name <- variableParser
-                        ; reservedOp "="
-                        ; value <- expressionParser
-                        ; return $ AssignExp name value
-                        })
+assignExpParser :: Parser Expression
+assignExpParser = do{ name <- variableParser
+                    ; reservedOp "="
+                    ; value <- expressionParser
+                    ; return $ AssignExp name value
+                    }
 
 variableParser :: Parser Name
 variableParser = lexeme(do{ name <- identifier

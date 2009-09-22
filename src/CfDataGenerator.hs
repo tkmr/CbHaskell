@@ -38,10 +38,18 @@ instance Valid Param where
     valid = liftM2 Param valid valid
 
 instance Valid Block where
-    valid = liftM2 Block (vectorOf 2 (valid::(Gen DefVar))) (elements [ [(ExpStatement $ TermExp $ NumberTerm 10)] ]) --(listOf (valid::(Gen Statement)))
+    valid = liftM2 Block (listOf (valid::(Gen DefVar))) (listOf1 (valid::(Gen Statement)))
 
 instance Valid Statement where
-    valid = oneof [ liftM3 IfStatement valid valid valid ]
+    valid = oneof [ liftM LabeledStatement valid
+                  , liftM3 IfStatement valid valid valid
+                  , liftM BlockStatement valid
+                  , liftM ExpStatement valid
+                  , liftM2 WhileStatement valid valid
+                  , liftM4 ForStatement valid valid valid valid
+                  , elements[ BreakStatement, ContinueStatement ]
+                  , liftM GotoStatement valid
+                  , liftM ReturnStatement valid ]
             
 instance Valid Expression where
     valid = oneof [ liftM2 AssignExp valid valid

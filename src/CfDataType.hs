@@ -67,37 +67,47 @@ instance Show Block where
     
 
 ---Statement------------
-data Statement = IfStatement { if_cont::Expression, if_then::Block, if_else::Block }
-               | WhileStatement { while_cont::Expression, while_body::Block }
-               | ExpStatement Expression
-                 
-instance Show Statement where
-    show (ExpStatement exp) = (show exp) ++ ";\n"
+data Statement = NulllineStatement
+               | LabeledStatement Name
+               | ExpStatement   Expression     
+               | BlockStatement Block
+               | IfStatement    Expression Statement Statement
+               | WhileStatement Expression Statement
+               | ForStatement   Expression Expression Expression Statement
+               | BreakStatement
+               | ContinueStatement
+               | GotoStatement  Name
+               | ReturnStatement Expression
 
-                          
+instance Show Statement where
+    show (NulllineStatement)       = ";\n"
+    show (LabeledStatement name)   = "label " ++ name ++ ":\n"
+    show (IfStatement exp thn els) = "if (" ++ (show exp) ++ ") " ++ (show thn) ++ " else " ++ (show els) 
+    show (BlockStatement block)    = show block
+    show (ExpStatement exp)        = (show exp) ++ ";\n"
+    show (WhileStatement exp body) = "while(" ++ (show exp) ++ ")" ++ (show body)
+    show (ForStatement e1 e2 e3 body) = "for(" ++ (show e1) ++ ";" ++ (show e2) ++ ";" ++ (show e3) ++ ")" ++ (show body)
+    show (BreakStatement)          = "break;\n"
+    show (ContinueStatement)       = "continue;\n"
+    show (GotoStatement name)      = "goto " ++ name ++ ";\n"
+    show (ReturnStatement exp)     = "return " ++ (show exp) ++ ";\n"
+                                     
 ---Expression----------
 data Expression = AssignExp { assign_name::Name, assign_value::Expression }
                 | TermExp Term
-
-class Expressions a where
-    toExpression :: a -> Expression
+                | NullExp
 
 instance Show Expression where
     show (AssignExp name value) = name ++ " = " ++ (show value)
     show (TermExp term) = show term
+    show (NullExp)      = "null"
 
-                              
+                         
 ---Term----------------
 data Term = NumberTerm Number
-
-class Terms a where
-    toTerm :: a -> Term
           
 instance Show Term where
     show (NumberTerm num) = show num
-                            
-instance Expressions Term where
-    toExpression term = TermExp term
 
 
 ---Type--------------------
@@ -149,8 +159,6 @@ instance Show TyperefBase where
 ---Number--------------
 type Number = Int
 
-instance Terms Int where
-    toTerm i = NumberTerm i
 
                
 ---Variable-----------
