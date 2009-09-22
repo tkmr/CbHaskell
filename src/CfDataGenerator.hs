@@ -61,10 +61,10 @@ instance Valid Bool where
     valid = elements [ True, False]
 
 instance Valid TypeRef where
-    valid = liftM2 TypeRef valid $ listOf1 (valid::(Gen TyperefOption))
+    valid = liftM2 TypeRef valid $ listOf (valid::(Gen TyperefOption))
 
 instance Valid TyperefBase where
-    valid = elements [VoidType, CharType, ShortType, IntType, LongType, UnsignedCharType, UnsignedShortType
+    valid = elements [CharType, ShortType, IntType, LongType, UnsignedCharType, UnsignedShortType
                      , UnsignedIntType, UnsignedLongType, StructType "tsetstrct", UnionType "testunion"]
 
 instance Valid TyperefOption where

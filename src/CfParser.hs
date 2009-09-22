@@ -191,12 +191,7 @@ typerefBaseParser = lexeme $
                        }
 
 typerefOptsParser :: Parser [TyperefOption]
-typerefOptsParser = do{ o <- try $ tryallParser [ varray, array, pointer, funcp ]
-                      ; os <- typerefOptsParser
-                      ; return (o:os)
-                      }
-                    <|>
-                    return []
+typerefOptsParser = many $ tryallParser [ varray, array, pointer, funcp ]
     where
       varray = do{ lexeme $ char '['
                  ; lexeme $ char ']'
