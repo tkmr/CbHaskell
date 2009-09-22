@@ -38,7 +38,7 @@ instance Valid Param where
     valid = liftM2 Param valid valid
 
 instance Valid Block where
-    valid = liftM2 Block (listOf (valid::(Gen DefVar))) (listOf1 (valid::(Gen Statement)))
+    valid = liftM2 Block (listOf (valid::(Gen DefVar))) (vectorOf 2 (valid::(Gen Statement)))
 
 instance Valid Statement where
     valid = oneof [ liftM LabeledStatement valid
@@ -52,9 +52,16 @@ instance Valid Statement where
                   , liftM ReturnStatement valid ]
             
 instance Valid Expression where
-    valid = oneof [ liftM2 AssignExp valid valid
-                  , liftM TermExp valid
-                  ]
+    valid = frequency [ (2, (liftM3 AssignExp valid (elements ["=", "+=", "-="]) valid))
+                      , (24, (liftM TermExp valid))
+                      , (1, (liftM3 TreeConditionExp twoTermExpGen valid valid))
+                      , (4, twoTermExpGen)
+                      ]
+        where
+          twoTermExpGen  = oneof [ boolCondExpGen, bitExpGen, mathExpGen ]
+          boolCondExpGen = oneof [ bitExpGen, mathExpGen, (liftM3 BoolCondExp valid valid (elements ["||", "&&", "<", "=="])) ]
+          bitExpGen      = oneof [ mathExpGen, (liftM3 BitcalcExp valid valid (elements ["|", "&", "^", "<<"])) ]
+          mathExpGen     = liftM3 MathcalcExp valid valid (elements ["+", "-", "&", "/"])
 
 instance Valid Term where
     valid = liftM NumberTerm valid

@@ -8,8 +8,8 @@ import qualified Text.ParserCombinators.Parsec.Token as P
     
 lexer :: P.TokenParser ()
 lexer = P.makeTokenParser (javaStyle {
-                             reservedNames   = ["static", "return", "typedef", "struct", "union", "import", "if", "else", "...", "void", "char", "short", "int", "long", "unsigned", "goto", "break", "continue", "for", "while", "label"]
-                           , reservedOpNames = ["="]
+                             reservedNames   = ["static", "return", "typedef", "struct", "union", "import", "if", "else", "...", "void", "char", "short", "int", "long", "unsigned", "goto", "break", "continue", "for", "while", "label", "sizeof"]
+                           , reservedOpNames = ["=", "||", "&&", ">", "<", ">=", "<=", "==", "!=", "|", "^", "&", ">>", "<<", "+", "-", "*", "/", "%", "->"]
                            })
 
 reservedOp = P.reservedOp lexer
@@ -31,7 +31,7 @@ hasStr str = do { result <- option False (do{ reserved str; return True })
                 ; return result
                 }
 
-eqWithExpression = do { try(char '=')
+eqWithExpression = do { lexeme $ char '='
                       ; whiteSpace
                       ; exp <- expressionParser
                       ; return exp }
@@ -108,10 +108,10 @@ defvarsParser = do{ isstatic <- lexeme $ hasStr "static"
 
 defvarParser :: Bool -> Type -> Parser DefVar
 defvarParser static type_ = lexeme(do{ name <- identifier
-                                        ; exp <- tryOrNothing eqWithExpression
-                                        ; semi
-                                        ; return $ DefVar (StaticProp static) type_ name exp
-                                        })
+                                     ; exp <- tryOrNothing eqWithExpression
+                                     ; semi
+                                     ; return $ DefVar (StaticProp static) type_ name exp
+                                     })
 
 deffunParser :: Parser DefFun
 deffunParser = do{ isstatic <- lexeme $ hasStr "static"
@@ -313,31 +313,144 @@ returnStmtParser = do{ reserved "return"
 --expression--------------------------------
 expressionParser :: Parser Expression
 expressionParser = tryallParser [ assignExpParser
-                                , termExpParser
-                                , nullExpParser ]
+                                , exp10Parser ]
+
+exp10Parser :: Parser Expression
+exp10Parser = do{ exp1 <- exp9Parser
+                ; do{ try $ lexeme $ char '?'
+                    ; exp2 <- expressionParser
+                    ; lexeme $ char ':'
+                    ; exp3 <- exp10Parser
+                    ; return $ TreeConditionExp exp1 exp2 exp3
+                    }
+                  <|>
+                  do{ return exp1 }
+                }
+
+exp9Parser = twoTermParser exp8Parser ["||"] BoolCondExp
+             
+exp8Parser = twoTermParser exp7Parser ["&&"] BoolCondExp
+             
+exp7Parser = twoTermParser exp6Parser [">", "<", "<=", ">=", "==", "!="] BoolCondExp
+             
+exp6Parser = twoTermParser exp5Parser ["|"] BitcalcExp
+             
+exp5Parser = twoTermParser exp4Parser ["^"] BitcalcExp
+             
+exp4Parser = twoTermParser exp3Parser ["&"] BitcalcExp
+             
+exp3Parser = twoTermParser exp2Parser [">>", "<<"] BitcalcExp
+             
+exp2Parser = twoTermParser exp1Parser ["+", "-"] MathcalcExp
+             
+exp1Parser = twoTermParser termExpParser ["*", "/", "%"] MathcalcExp
+             
+twoTermParser next opes const = do{ expA <- next
+                                  ; optparse expA opes
+                                  }
+    where
+      optparse expA []     = do{ return expA }
+      optparse expA (o:os) = do{ try $ reservedOp o
+                               ; expB <- next
+                               ; return $ const expA expB o
+                               }
+                             <|>
+                             optparse expA os
 
 nullExpParser = do{ reserved "null"
                   ; return NullExp }
                    
 termExpParser = do{ term <- termParser
                   ; return $ TermExp term }
-                   
-termParser :: Parser Term
-termParser = do { x <- try $ numberLiteralParser
-                ; return $ NumberTerm x
-                }
-                   
-assignExpParser :: Parser Expression
-assignExpParser = do{ name <- variableParser
-                    ; reservedOp "="
-                    ; value <- expressionParser
-                    ; return $ AssignExp name value
-                    }
 
-variableParser :: Parser Name
-variableParser = lexeme(do{ name <- identifier
-                          ; return name
-                          })
+
+
+--term--------------------------------------
+termParser :: Parser Term
+termParser = do{ try $ lexeme $ char '('
+               ; type_ <- typerefParser
+               ; lexeme $ char ')'
+               ; tm <- termParser
+               ; return $ CastTerm type_ tm
+               }
+             <|>
+             unaryTermParser
+
+--prefix             
+prefixTerm opes f = do{ op <- tryallParser $ map string opes
+                      ; tm <- f
+                      ; return $ PrefixCalcTerm op tm
+                      }
+             
+unaryTermParser = tryallParser [ prefixTerm ["++", "--"] unaryTermParser
+                               , prefixTerm ["!", "~", "*", "&"] termParser
+                               , sizeofTypeTerm
+                               , sizeofTerm
+                               , postfixTerm ]
+    where
+      sizeofTypeTerm = do{ reserved "sizeof"
+                         ; type_ <- wrapedChar '(' ')' typerefParser
+                         ; return $ TypesizeTerm type_ }
+
+      sizeofTerm = do{ reserved "sizeof"
+                     ; tm <- unaryTermParser
+                     ; return $ SizeTerm tm }
+
+
+--postfix      
+postfixTerm = do{ prim <- primaryTermParser
+                ; do{ op <- (try string "++") <|> (try string "--")
+                    ; return $ PostfixCalcTerm op prim }
+                  <|>
+                  do{ exp <- try $ wrapedChar '[' ']' expressionParser
+                    ; return $ ArrayrefTerm exp prim }
+                  <|>
+                  do{ try $ char '.'
+                    ; name <- identifier
+                    ; return $ StructrefTerm name prim }
+                  <|>
+                  do{ try $ reservedOp "->"
+                    ; name <- identifier
+                    ; return $ PointerrefTerm name prim }
+                  <|>
+                  do{ try $ char '('
+                    ; args <- commaSepareted expressionParser
+                    ; char ')'
+                    ; return $ FunccallTerm args prim }
+                  <|>
+                  do{ return prim }
+                }
+
+primaryTermParser = tryallParser [ numlit, charlit, strlit, varlit, explit ]
+    where
+      numlit  = do{ num <- number
+                  ; return $ NumberLiteral num }
+
+      charlit = do{ chr <- P.charLiteral
+                  ; return $ CharLiteral chr }
+
+      strlit  = do{ str <- P.stringLiteral
+                  ; return $ StringLiteral str ) 
+
+      varlit  = do{ idt <- identifier
+                  ; return $ VarIdentLiteral idt }
+
+      explit  = do{ exp <- wrapedChar '(' ')' expressionParser
+                  ; return $ ExpLiteral exp
+                  }
+                  
+-----                    
+assignExpParser :: Parser Expression
+assignExpParser = do{ target <- termParser
+                    ; ope <- operator
+                    ; value <- expressionParser
+                    ; return $ AssignExp target ope value
+                    }
+    where
+      operator = tryallStr [ "=", "+=", "-=", "*=", "/="
+                           , "%=", "&=", "|=", "^=", "<<=", ">>="]
+
+      tryallStr ls = tryallParser $ map (\s -> lexeme $ string s) ls
 
 numberLiteralParser :: Parser Number
 numberLiteralParser = lexeme(do{ x <- number

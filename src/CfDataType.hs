@@ -91,20 +91,42 @@ instance Show Statement where
     show (ContinueStatement)       = "continue;\n"
     show (GotoStatement name)      = "goto " ++ name ++ ";\n"
     show (ReturnStatement exp)     = "return " ++ (show exp) ++ ";\n"
+
                                      
 ---Expression----------
-data Expression = AssignExp { assign_name::Name, assign_value::Expression }
+data Expression = AssignExp { assign_t::Term, assign_operation::String, assign_value::Expression }
                 | TermExp Term
                 | NullExp
+                | TreeConditionExp Expression Expression Expression
+                | BoolCondExp Expression Expression String
+                | BitcalcExp  Expression Expression String
+                | MathcalcExp Expression Expression String
 
 instance Show Expression where
-    show (AssignExp name value) = name ++ " = " ++ (show value)
-    show (TermExp term) = show term
-    show (NullExp)      = "null"
+    show (AssignExp name ope value) = (show name) ++ " " ++ ope ++ " " ++ (show value)
+    show (TermExp term)          = show term
+    show (NullExp)               = "null"
+    show (TreeConditionExp e1 e2 e3) = (show e1) ++ " ? " ++ (show e2) ++ " : " ++ (show e3)
+    show (BoolCondExp e1 e2 op)  = (show e1) ++ op ++ (show e2)
+    show (BitcalcExp e1 e2 op)   = (show e1) ++ op ++ (show e2)
+    show (MathcalcExp e1 e2 op)  = (show e1) ++ op ++ (show e2)
 
-                         
+
 ---Term----------------
-data Term = NumberTerm Number
+data Term = CastTerm        Type Term
+          | PrefixCalcTerm  String Term
+          | TypesizeTerm    Type
+          | SizeTerm        Term
+          | PostfixCalcTerm String Term
+          | ArrayrefTerm    Expression Term
+          | StructrefTerm   Name Term
+          | PointerrefTerm  Name Term
+          | FunccallTerm    [Expression] Term
+          | NumberLiteral   Number
+          | CharLiteral     Char
+          | StringLiteral   String
+          | VarIdentLiteral Name
+          | ExpLiteral      Expression
           
 instance Show Term where
     show (NumberTerm num) = show num
@@ -156,16 +178,11 @@ instance Show TyperefBase where
     show (UnionType  name)    = "union " ++ name
     show (OriginalType name)  = name
                                      
----Number--------------
-type Number = Int
-
-
-               
----Variable-----------
-type Name = String               
-
-    
 ----misc-------------
+type Name = String
+    
+type Number = Int
+    
 data StaticProp = StaticProp Bool
     
 instance Show StaticProp where
