@@ -30,12 +30,12 @@ data Definition = DefineFun DefFun
 data DefVar = DefVar StaticProp Type Name (Maybe Expression)
             
 instance Show DefVar where
-    show (DefVar isstatic typename name value) = (show isstatic) ++ typename ++ " " ++ name ++ (expOrEnd value)
+    show (DefVar isstatic type_ name value) = (show isstatic) ++ (show type_) ++ " " ++ name ++ (expOrEnd value)
 
 data DefFun = DefFun StaticProp TypeRef Name FuncParams Block
             
 instance Show DefFun where
-    show (DefFun isstatic typename name params body) = (show isstatic) ++ typename ++ " " ++ name ++ "(" ++ (show params) ++ ")" ++ show body
+    show (DefFun isstatic type_ name params body) = (show isstatic) ++ (show type_) ++ " " ++ name ++ "(" ++ (show params) ++ ")" ++ show body
         
 data DefStruct = DefStruct Name [Param] deriving Show
 
@@ -58,7 +58,7 @@ instance Show FuncParams where
 data Param = Param Type Name
            
 instance Show Param where
-    show (Param typename name) = typename ++ " " ++ name
+    show (Param type_ name) = (show type_) ++ " " ++ name
 
 data Block = Block [DefVar] [Statement]
            
@@ -123,14 +123,14 @@ data TyperefBase = VoidType
                  | UnionType Name
                  | OriginalType Name
 
-instance Show Typeref where
-    show (Typeref base options) = (show base) ++ (show options)
+instance Show TypeRef where
+    show (TypeRef base options) = (show base) ++ (joinStr "" $ map show options)
 
 instance Show TyperefOption where
     show (NonLimitArrayOption)  = "[]"
     show (LimitedArrayOption i) = "[" ++ (show i) ++ "]"
     show (PointerOption)        = "*"
-    show (FuncPointerOption types) = "(" ++ (join ',' $ map show types) ++ ")"
+    show (FuncPointerOption types) = "(" ++ (joinStr "," $ map show types) ++ ")"
 
 instance Show TyperefBase where
     show (VoidType)           = "void"

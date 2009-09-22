@@ -8,7 +8,7 @@ import qualified Text.ParserCombinators.Parsec.Token as P
     
 lexer :: P.TokenParser ()
 lexer = P.makeTokenParser (javaStyle {
-                             reservedNames   = ["static", "return", "typedef", "struct", "union", "import", "if", "else", "...", "void"]
+                             reservedNames   = ["static", "return", "typedef", "struct", "union", "import", "if", "else", "...", "void", "char", "short", "int", "long", "unsigned"]
                            , reservedOpNames = ["="]
                            })
 
@@ -62,7 +62,11 @@ wrapedChar s e p = do{ lexeme $ char s
                      ; return res
                      }
 
-typeRefParser = 
+tryallParser :: [Parser a] -> Parser a
+tryallParser (p:[]) = p
+tryallParser (p:ps) = do{ res <- try p; return res }
+                      <|>
+                      tryallParser ps
 
 --statements---------------------------------
 impStatementsParser :: Parser ImportStatements
@@ -92,26 +96,26 @@ namespace = lexeme(do{ name <- identifier
 defvarsParser :: Parser [DefVar]
 defvarsParser = do{ isstatic <- hasStr "static"
                   ; whiteSpace
-                  ; typename <- identifier
-                  ; res      <- commaSepareted $ defvarParser isstatic typename
+                  ; type_ <- typeRefParser
+                  ; res   <- commaSepareted $ defvarParser isstatic type_
                   ; return res
                   }
                 <?> "defvarsParser"
 
-defvarParser :: Bool -> String -> Parser DefVar
-defvarParser static typename = lexeme(do{ name <- identifier
+defvarParser :: Bool -> Type -> Parser DefVar
+defvarParser static type_ = lexeme(do{ name <- identifier
                                         ; exp <- tryOrNothing eqWithExpression
                                         ; semi
-                                        ; return $ DefVar (StaticProp static) typename name exp
+                                        ; return $ DefVar (StaticProp static) type_ name exp
                                         })
 
 deffunParser :: Parser DefFun
 deffunParser = do{ isstatic <- lexeme $ hasStr "static"
-                 ; typename <- identifier
+                 ; typeref <- typeRefParser
                  ; name <- identifier
                  ; params <- wrapedChar '(' ')' funcparamParser
                  ; body <- blockParser
-                 ; return $ DefFun (StaticProp isstatic) typename name params body
+                 ; return $ DefFun (StaticProp isstatic) typeref name params body
                  }
 
 funcparamParser :: Parser FuncParams
@@ -146,17 +150,79 @@ defunionParser = do{ lexeme $ reserved "union"
 
 deftypeParser :: Parser DefType
 deftypeParser = do{ lexeme $ reserved "typedef"
-                  ; typename <- identifier
+                  ; typeref <- typeRefParser
                   ; name <- identifier
                   ; semi
-                  ; return $ DefType typename name
+                  ; return $ DefType typeref name
                   }
-                           
+
+typeRefParser :: Parser TypeRef
+typeRefParser = lexeme $ do{ base <- typerefBaseParser
+                           ; options <- typerefOptsParser
+                           ; return $ TypeRef base options
+                           }
+
+typerefBaseParser :: Parser TyperefBase
+typerefBaseParser = lexeme $
+      tryallParser [ simple VoidType
+                   , simple CharType
+                   , simple IntType
+                   , simple ShortType
+                   , simple LongType
+                   , simple UnsignedCharType
+                   , simple UnsignedShortType
+                   , simple UnsignedIntType
+                   , simple UnsignedLongType
+                   , simpleWithName "struct" StructType
+                   , simpleWithName "union" UnionType
+                   , originalType ]
+    where                             
+      simple f = do{ lexeme $ reserved $ show (f)
+                   ; return (f) }
+
+      simpleWithName str f = do{ lexeme $ reserved str
+                               ; name <- identifier
+                               ; return $ f name }
+
+      originalType = do{ name <- identifier
+                       ; if (isTypeDefined name)
+                         then return $ OriginalType name
+                         else do{ string "this original type didn't define, yet. how can I define ParseError logic?"; return VoidType }
+                       }
+
+typerefOptsParser :: Parser [TyperefOption]
+typerefOptsParser = do{ o <- try $ tryallParser [ varray, array, pointer, funcp ]
+                      ; os <- typerefOptsParser
+                      ; return (o:os)
+                      }
+                    <|>
+                    return []
+    where
+      varray = do{ lexeme $ char '['
+                 ; lexeme $ char ']'
+                 ; return NonLimitArrayOption }
+
+      array = do{ lexeme $ char '['
+                ; num <- number
+                ; lexeme $ char ']'
+                ; return $ LimitedArrayOption num }
+
+      pointer = do{ lexeme $ char '*'
+                  ; return PointerOption }
+
+      funcp = do{ lexeme $ char '('
+                ; types <- many typeRefParser
+                ; lexeme $ char ')'
+                ; return $ FuncPointerOption types }         
+                     
 --utils---
+isTypeDefined :: String -> Bool
+isTypeDefined name = False
+
 paramParser :: Parser Param
-paramParser = do{ typename <- identifier
+paramParser = do{ type_ <- typeRefParser
                 ; name <- identifier
-                ; return $ Param typename name
+                ; return $ Param type_ name
                 }
               <?> "paramParser"
 

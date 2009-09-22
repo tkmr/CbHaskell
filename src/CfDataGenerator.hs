@@ -65,12 +65,12 @@ instance Valid TypeRef where
 
 instance Valid TyperefBase where
     valid = elements [VoidType, CharType, ShortType, IntType, LongType, UnsignedCharType, UnsignedShortType
-                     , UnsignedIntType, UnsignedLongType, StructType "tsetstrct", UnionType "testunion", OriginalType "MyTestType"]
+                     , UnsignedIntType, UnsignedLongType, StructType "tsetstrct", UnionType "testunion"]
 
 instance Valid TyperefOption where
     valid = oneof [ elements [NonLimitArrayOption, PointerOption]
                   , liftM LimitedArrayOption valid
-                  , liftM FuncPointerOption valid
+                  , liftM FuncPointerOption $ listOf1 (valid::(Gen TypeRef))
                   ]
             
 ---for QuickCheck ---------------------------
