@@ -368,7 +368,7 @@ termExpParser = do{ term <- termParser
 --term--------------------------------------
 termParser :: Parser Term
 termParser = do{ try $ lexeme $ char '('
-               ; type_ <- typerefParser
+               ; type_ <- typeRefParser
                ; lexeme $ char ')'
                ; tm <- termParser
                ; return $ CastTerm type_ tm
@@ -389,7 +389,7 @@ unaryTermParser = tryallParser [ prefixTerm ["++", "--"] unaryTermParser
                                , postfixTerm ]
     where
       sizeofTypeTerm = do{ reserved "sizeof"
-                         ; type_ <- wrapedChar '(' ')' typerefParser
+                         ; type_ <- wrapedChar '(' ')' typeRefParser
                          ; return $ TypesizeTerm type_ }
 
       sizeofTerm = do{ reserved "sizeof"
@@ -399,7 +399,7 @@ unaryTermParser = tryallParser [ prefixTerm ["++", "--"] unaryTermParser
 
 --postfix      
 postfixTerm = do{ prim <- primaryTermParser
-                ; do{ op <- (try string "++") <|> (try string "--")
+                ; do{ op <- (try $ string "++") <|> (try $ string "--")
                     ; return $ PostfixCalcTerm op prim }
                   <|>
                   do{ exp <- try $ wrapedChar '[' ']' expressionParser
@@ -430,7 +430,7 @@ primaryTermParser = tryallParser [ numlit, charlit, strlit, varlit, explit ]
                   ; return $ CharLiteral chr }
 
       strlit  = do{ str <- P.stringLiteral
-                  ; return $ StringLiteral str ) 
+                  ; return $ StringLiteral str }
 
       varlit  = do{ idt <- identifier
                   ; return $ VarIdentLiteral idt }

@@ -129,7 +129,20 @@ data Term = CastTerm        Type Term
           | ExpLiteral      Expression
           
 instance Show Term where
-    show (NumberTerm num) = show num
+    show (CastTerm tp tm)       = "(" ++ (show tp) ++ ")" ++ (show tm)
+    show (PrefixCalcTerm pr tm) = pr ++ (show tm)
+    show (TypesizeTerm tp)      = "sizeof (" ++ (show tp) ++ ")"
+    show (SizeTerm tm)          = "sizeof " ++ (show tm)
+    show (PostfixCalcTerm ps tm) = (show tm) ++ ps
+    show (ArrayrefTerm exp tm)  = (show tm) ++ "[" ++ (show exp) ++ "]"
+    show (StructrefTerm nm tm)  = (show tm) ++ "." ++ nm
+    show (PointerrefTerm nm tm) = (show tm) ++ "->" ++ nm
+    show (FunccallTerm exps tm) = (show tm) ++ "(" ++ (joinStr ", " $ map show exps) ++ ")"
+    show (NumberLiteral num)    = show num
+    show (CharLiteral chr)      = "'" ++ [chr] ++ "'"
+    show (StringLiteral str)    = "\"" ++ str ++ "\""
+    show (VarIdentLiteral name) = show name
+    show (ExpLiteral exp)       = "(" ++ (show exp) ++ ")"
 
 
 ---Type--------------------
