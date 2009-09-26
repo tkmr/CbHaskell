@@ -2,6 +2,13 @@
 module CfDataType_Show where
 import CfDataType
 
+showAll list = joinStr "" $ map show list    
+    
+instance Show Entity where
+    show (VarEntity base)        = show base
+    show (ConstEntity base tp)   = showAll [base, tp]
+
+---    
 instance Show ImportStatements where
     show (ImportStatements [])     = ""
     show (ImportStatements (x:xs)) = (show x) ++ "\n" ++ (show xs)
@@ -76,6 +83,8 @@ instance Show Term where
 
 instance Show TypeRef where
     show (TypeRef base options) = (show base) ++ (joinStr "" $ map show options)
+instance Show Type where
+    show (Type base options) = (show base) ++ (joinStr "" $ map show options)
 
 instance Show TyperefOption where
     show (NonLimitArrayOption)  = "[]"

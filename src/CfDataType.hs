@@ -2,6 +2,12 @@ module CfDataType where
 import Control.Monad
 import Data.List
 
+---Entity
+data Entity = VarEntity EntityBase
+            | ConstEntity EntityBase Type
+
+data EntityBase = EntityBase Name
+                
 ---ImportStatement------
 data ImportStatements = ImportStatements [ImportStatement]
 data ImportStatement  = ImportStatement  [String]
@@ -16,7 +22,7 @@ data Definition = DefineFun DefFun
                 | DefineUnion  DefUnion
                 | DefineType   DefType
 
-data DefVar = DefVar StaticProp Type Name (Maybe Expression)
+data DefVar = DefVar StaticProp TypeRef Name (Maybe Expression)
 data DefFun = DefFun StaticProp TypeRef Name FuncParams Block
 data DefStruct = DefStruct Name [Param]
 data DefUnion = DefUnion Name [Param]
@@ -27,7 +33,7 @@ data FuncParams = VoidParams
                 | FixedParams [Param]
                 | VariableParams [Param]
 
-data Param = Param Type Name
+data Param = Param TypeRef Name
 data Block = Block [DefVar] [Statement]
 
 ---Statement------------
@@ -53,24 +59,26 @@ data Expression = AssignExp { assign_t::Term, assign_operation::String, assign_v
                 | MathcalcExp Expression Expression String
 
 ---Term----------------
-data Term = CastTerm        Type Term
+data Term = CastTerm        TypeRef Term
           | PrefixCalcTerm  String Term
-          | TypesizeTerm    Type
+          | TypesizeTerm    TypeRef
           | SizeTerm        Term
           | PostfixCalcTerm String Term
           | ArrayrefTerm    Expression Term
           | StructrefTerm   Name Term
           | PointerrefTerm  Name Term
           | FunccallTerm    [Expression] Term
+          | VariableTerm    Entity
           | NumberLiteral   Number
           | CharLiteral     Char
           | StringLiteral   String
           | VarIdentLiteral Name
           | ExpLiteral      Expression
 
+
 ---Type--------------------
-type Type = TypeRef
-data TypeRef = TypeRef TyperefBase [TyperefOption]
+type TypeRef = Type
+data Type = Type TyperefBase [TyperefOption]
 
 data TyperefOption = NonLimitArrayOption
                    | LimitedArrayOption Int

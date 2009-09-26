@@ -104,18 +104,18 @@ namespace = lexeme(do{ name <- identifier
 --definition---------------------------------
 defvarsParser :: Parser [DefVar]
 defvarsParser = do{ isstatic <- lexeme $ hasStr "static"
-                  ; type_ <- typeRefParser
-                  ; res   <- commaSepareted $ defvarParser isstatic type_
+                  ; typeref <- typeRefParser
+                  ; res   <- commaSepareted $ defvarParser isstatic typeref
                   ; return res
                   }
                 <?> "defvarsParser"
 
-defvarParser :: Bool -> Type -> Parser DefVar
-defvarParser static type_ = lexeme(do{ name <- identifier
-                                     ; exp <- tryOrNothing eqWithExpression
-                                     ; semi
-                                     ; return $ DefVar (StaticProp static) type_ name exp
-                                     })
+defvarParser :: Bool -> TypeRef -> Parser DefVar
+defvarParser static typeref = lexeme(do{ name <- identifier
+                                       ; exp <- tryOrNothing eqWithExpression
+                                       ; semi
+                                       ; return $ DefVar (StaticProp static) typeref name exp
+                                       })
 
 deffunParser :: Parser DefFun
 deffunParser = do{ isstatic <- lexeme $ hasStr "static"
@@ -165,10 +165,13 @@ deftypeParser = do{ lexeme $ reserved "typedef"
                   }
 
 typeRefParser :: Parser TypeRef
-typeRefParser = lexeme $ do{ base <- typerefBaseParser
-                           ; options <- typerefOptsParser
-                           ; return $ TypeRef base options
-                           }
+typeRefParser = typeParser
+
+typeParser :: Parser Type
+typeParser = lexeme $ do{ base <- typerefBaseParser
+                        ; options <- typerefOptsParser
+                        ; return $ Type base options
+                        }
 
 typerefBaseParser :: Parser TyperefBase
 typerefBaseParser = lexeme $
@@ -223,9 +226,9 @@ isTypeDefined :: String -> Bool
 isTypeDefined name = False
 
 paramParser :: Parser Param
-paramParser = do{ type_ <- typeRefParser
+paramParser = do{ typeref <- typeRefParser
                 ; name <- identifier
-                ; return $ Param type_ name
+                ; return $ Param typeref name
                 }
               <?> "paramParser"
 
@@ -372,10 +375,10 @@ termExpParser = do{ term <- termParser
 --term--------------------------------------
 termParser :: Parser Term
 termParser = do{ try $ lexeme $ char '('
-               ; type_ <- typeRefParser
+               ; typeref <- typeRefParser
                ; lexeme $ char ')'
                ; tm <- termParser
-               ; return $ CastTerm type_ tm
+               ; return $ CastTerm typeref tm
                }
              <|>
              unaryTermParser
@@ -393,8 +396,8 @@ unaryTermParser = tryallParser [ prefixTerm ["++", "--"] unaryTermParser
                                , postfixTerm ]
     where
       sizeofTypeTerm = do{ reserved "sizeof"
-                         ; type_ <- wrapedChar '(' ')' typeRefParser
-                         ; return $ TypesizeTerm type_ }
+                         ; typeref <- wrapedChar '(' ')' typeRefParser
+                         ; return $ TypesizeTerm typeref }
 
       sizeofTerm = do{ reserved "sizeof"
                      ; tm <- unaryTermParser
