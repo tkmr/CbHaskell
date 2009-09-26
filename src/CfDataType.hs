@@ -1,4 +1,3 @@
-{-# OPTIONS -XTypeSynonymInstances #-}
 module CfDataType where
 import Control.Monad
 import Data.List
@@ -6,16 +5,7 @@ import Data.List
 ---ImportStatement------
 data ImportStatements = ImportStatements [ImportStatement]
 data ImportStatement  = ImportStatement  [String]
-                      
-instance Show ImportStatements where
-    show (ImportStatements [])     = ""
-    show (ImportStatements (x:xs)) = (show x) ++ "\n" ++ (show xs)
 
-instance Show ImportStatement where
-    show (ImportStatement []) = ""
-    show (ImportStatement xs) = "import " ++ (joinStr "." xs) ++ ";"
-
-    
 ---Top definition:
 data TopDefine = TopDefine [Definition]
 
@@ -25,46 +15,20 @@ data Definition = DefineFun DefFun
                 | DefineStruct DefStruct
                 | DefineUnion  DefUnion
                 | DefineType   DefType
-                  deriving Show
 
 data DefVar = DefVar StaticProp Type Name (Maybe Expression)
-            
-instance Show DefVar where
-    show (DefVar isstatic type_ name value) = (show isstatic) ++ (show type_) ++ " " ++ name ++ (expOrEnd value)
-
 data DefFun = DefFun StaticProp TypeRef Name FuncParams Block
-            
-instance Show DefFun where
-    show (DefFun isstatic type_ name params body) = (show isstatic) ++ (show type_) ++ " " ++ name ++ "(" ++ (show params) ++ ")" ++ show body
-        
-data DefStruct = DefStruct Name [Param] deriving Show
+data DefStruct = DefStruct Name [Param]
+data DefUnion = DefUnion Name [Param]
+data DefType = DefType TypeRef Name
 
-data DefUnion = DefUnion Name [Param] deriving Show
-
-data DefType = DefType TypeRef Name deriving Show
-                           
-
-              
 ---Sub definitions of Top define:
 data FuncParams = VoidParams
                 | FixedParams [Param]
                 | VariableParams [Param]
-                  
-instance Show FuncParams where
-    show (VoidParams)            = "void"
-    show (FixedParams params)    = joinStr ", " $ map show params
-    show (VariableParams params) = joinStr ", " $ (map show params) ++ ["..."]
 
 data Param = Param Type Name
-           
-instance Show Param where
-    show (Param type_ name) = (show type_) ++ " " ++ name
-
 data Block = Block [DefVar] [Statement]
-           
-instance Show Block where
-    show (Block vars stmts) = "{\n" ++ (allShowNewline vars) ++ "\n\n" ++ (allShowNewline stmts) ++ "\n}"
-    
 
 ---Statement------------
 data Statement = NulllineStatement
@@ -78,20 +42,6 @@ data Statement = NulllineStatement
                | ContinueStatement
                | GotoStatement  Name
                | ReturnStatement Expression
-
-instance Show Statement where
-    show (NulllineStatement)       = ";\n"
-    show (LabeledStatement name)   = "label " ++ name ++ ":\n"
-    show (IfStatement exp thn els) = "if (" ++ (show exp) ++ ") " ++ (show thn) ++ " else " ++ (show els) 
-    show (BlockStatement block)    = show block
-    show (ExpStatement exp)        = (show exp) ++ ";\n"
-    show (WhileStatement exp body) = "while(" ++ (show exp) ++ ")" ++ (show body)
-    show (ForStatement e1 e2 e3 body) = "for(" ++ (show e1) ++ ";" ++ (show e2) ++ ";" ++ (show e3) ++ ")" ++ (show body)
-    show (BreakStatement)          = "break;\n"
-    show (ContinueStatement)       = "continue;\n"
-    show (GotoStatement name)      = "goto " ++ name ++ ";\n"
-    show (ReturnStatement exp)     = "return " ++ (show exp) ++ ";\n"
-
                                      
 ---Expression----------
 data Expression = AssignExp { assign_t::Term, assign_operation::String, assign_value::Expression }
@@ -101,16 +51,6 @@ data Expression = AssignExp { assign_t::Term, assign_operation::String, assign_v
                 | BoolCondExp Expression Expression String
                 | BitcalcExp  Expression Expression String
                 | MathcalcExp Expression Expression String
-
-instance Show Expression where
-    show (AssignExp name ope value) = (show name) ++ " " ++ ope ++ " " ++ (show value)
-    show (TermExp term)          = show term
-    show (NullExp)               = "null"
-    show (TreeConditionExp e1 e2 e3) = (show e1) ++ " ? " ++ (show e2) ++ " : " ++ (show e3)
-    show (BoolCondExp e1 e2 op)  = (show e1) ++ op ++ (show e2)
-    show (BitcalcExp e1 e2 op)   = (show e1) ++ op ++ (show e2)
-    show (MathcalcExp e1 e2 op)  = (show e1) ++ op ++ (show e2)
-
 
 ---Term----------------
 data Term = CastTerm        Type Term
@@ -127,27 +67,9 @@ data Term = CastTerm        Type Term
           | StringLiteral   String
           | VarIdentLiteral Name
           | ExpLiteral      Expression
-          
-instance Show Term where
-    show (CastTerm tp tm)       = "(" ++ (show tp) ++ ")" ++ (show tm)
-    show (PrefixCalcTerm pr tm) = pr ++ (show tm)
-    show (TypesizeTerm tp)      = "sizeof (" ++ (show tp) ++ ")"
-    show (SizeTerm tm)          = "sizeof " ++ (show tm)
-    show (PostfixCalcTerm ps tm) = (show tm) ++ ps
-    show (ArrayrefTerm exp tm)  = (show tm) ++ "[" ++ (show exp) ++ "]"
-    show (StructrefTerm nm tm)  = (show tm) ++ "." ++ nm
-    show (PointerrefTerm nm tm) = (show tm) ++ "->" ++ nm
-    show (FunccallTerm exps tm) = (show tm) ++ "(" ++ (joinStr ", " $ map show exps) ++ ")"
-    show (NumberLiteral num)    = show num
-    show (CharLiteral chr)      = "'" ++ [chr] ++ "'"
-    show (StringLiteral str)    = "\"" ++ str ++ "\""
-    show (VarIdentLiteral name) = show name
-    show (ExpLiteral exp)       = "(" ++ (show exp) ++ ")"
-
 
 ---Type--------------------
 type Type = TypeRef
-
 data TypeRef = TypeRef TyperefBase [TyperefOption]
 
 data TyperefOption = NonLimitArrayOption
@@ -168,44 +90,13 @@ data TyperefBase = VoidType
                  | UnionType Name
                  | OriginalType Name
 
-instance Show TypeRef where
-    show (TypeRef base options) = (show base) ++ (joinStr "" $ map show options)
-
-instance Show TyperefOption where
-    show (NonLimitArrayOption)  = "[]"
-    show (LimitedArrayOption i) = "[" ++ (show i) ++ "]"
-    show (PointerOption)        = "*"
-    show (FuncPointerOption types) = "(" ++ (joinStr "," $ map show types) ++ ")"
-
-instance Show TyperefBase where
-    show (VoidType)           = "void"
-    show (CharType)           = "char"
-    show (ShortType)          = "short"
-    show (IntType)            = "int"
-    show (LongType)           = "long"
-    show (UnsignedCharType)   = "unsigned char"
-    show (UnsignedShortType)  = "unsigned short"
-    show (UnsignedIntType)    = "unsigned int"
-    show (UnsignedLongType)   = "unsigned long"
-    show (StructType name)    = "struct " ++ name
-    show (UnionType  name)    = "union " ++ name
-    show (OriginalType name)  = name
                                      
 ----misc-------------
 type Name = String
-    
 type Number = Int
-    
 data StaticProp = StaticProp Bool
     
-instance Show StaticProp where
-    show (StaticProp static) = case static of
-                                 True -> "static "
-                                 False -> ""
-                  
 expOrEnd (Nothing  ) = ";"
 expOrEnd (Just  exp) = " = " ++ (show exp) ++ ";"
-
 joinStr sep xs = foldl (++) "" $ intersperse sep xs
-
 allShowNewline lists = joinStr "\n" $ map show lists

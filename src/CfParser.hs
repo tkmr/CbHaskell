@@ -1,5 +1,6 @@
 module CfParser where
 import CfDataType
+import CfDataType_Show
 import Char
 import Text.ParserCombinators.Parsec
 import Text.ParserCombinators.Parsec.Expr
@@ -9,7 +10,7 @@ import qualified Text.ParserCombinators.Parsec.Token as P
 lexer :: P.TokenParser ()
 lexer = P.makeTokenParser (javaStyle {
                              reservedNames   = ["static", "return", "typedef", "struct", "union", "import", "if", "else", "...", "void", "char", "short", "int", "long", "unsigned", "goto", "break", "continue", "for", "while", "label", "sizeof"]
-                           , reservedOpNames = ["=", "||", "&&", ">", "<", ">=", "<=", "==", "!=", "|", "^", "&", ">>", "<<", "+", "-", "*", "/", "%", "->"]
+                           , reservedOpNames = ["=", "||", "&&", ">", "<", ">=", "<=", "==", "!=", "|", "^", "&", ">>", "<<", "+", "-", "*", "/", "%", "->", "[", "]"]
                            })
 
 reservedOp = P.reservedOp lexer
@@ -18,6 +19,9 @@ lexeme = P.lexeme lexer
 whiteSpace = P.whiteSpace lexer
 identifier = P.identifier lexer
 semi = lexeme $ char ';'
+
+charLiteral = P.charLiteral lexer
+strLiteral = P.stringLiteral lexer
        
 number :: Parser Int
 number = do{ ds <- many1 digit
@@ -31,7 +35,7 @@ hasStr str = do { result <- option False (do{ reserved str; return True })
                 ; return result
                 }
 
-eqWithExpression = do { lexeme $ char '='
+eqWithExpression = do { lexeme $ reservedOp "="
                       ; whiteSpace
                       ; exp <- expressionParser
                       ; return exp }
@@ -62,7 +66,7 @@ tryOrDefault def p = try p
                      do{ return def }
 
 tryOrNothing :: Parser a -> Parser (Maybe a)
-tryOrNothing p = do { res <- p
+tryOrNothing p = do { res <- try p
                     ; return $ Just res }
                  <|>
                  return Nothing
@@ -267,7 +271,7 @@ ifStmtParser = do{ lexeme $ reserved "if"
                  ; elseblock <- tryOrDefault (NulllineStatement) elsePs
                  ; return $ IfStatement exp thenblock elseblock }
     where
-      elsePs = do{ lexeme $ reserved "else"
+      elsePs = do{ reserved "else"
                  ; elseblock <- statementParser
                  ; return elseblock }
 
@@ -402,7 +406,9 @@ postfixTerm = do{ prim <- primaryTermParser
                 ; do{ op <- (try $ string "++") <|> (try $ string "--")
                     ; return $ PostfixCalcTerm op prim }
                   <|>
-                  do{ exp <- try $ wrapedChar '[' ']' expressionParser
+                  do{ try $ reservedOp "["
+                    ; exp <-  expressionParser
+                    ; reservedOp "]"
                     ; return $ ArrayrefTerm exp prim }
                   <|>
                   do{ try $ char '.'
@@ -426,10 +432,10 @@ primaryTermParser = tryallParser [ numlit, charlit, strlit, varlit, explit ]
       numlit  = do{ num <- number
                   ; return $ NumberLiteral num }
 
-      charlit = do{ chr <- P.charLiteral
+      charlit = do{ chr <- charLiteral
                   ; return $ CharLiteral chr }
 
-      strlit  = do{ str <- P.stringLiteral
+      strlit  = do{ str <- strLiteral
                   ; return $ StringLiteral str }
 
       varlit  = do{ idt <- identifier

@@ -1,6 +1,7 @@
 {-# OPTIONS -XTypeSynonymInstances #-}
 module CfDataGenerator where
-import CfDataType    
+import CfDataType
+import CfDataType_Show    
 import Test.QuickCheck
 import System.Random
 import Control.Monad
@@ -45,7 +46,7 @@ instance Valid Statement where
                   , liftM3 IfStatement valid valid valid
                   , liftM BlockStatement valid
                   , liftM ExpStatement valid
-                  , liftM2 WhileStatement valid valid
+                  , liftM2 WhileStatement valid (liftM BlockStatement valid)
                   , liftM4 ForStatement valid valid valid valid
                   , elements[ BreakStatement, ContinueStatement ]
                   , liftM GotoStatement valid
@@ -53,7 +54,7 @@ instance Valid Statement where
             
 instance Valid Expression where
     valid = frequency [ (2, (liftM3 AssignExp valid (elements ["=", "+=", "-="]) valid))
-                      , (24, (liftM TermExp valid))
+                      , (30, (liftM TermExp valid))
                       , (1, (liftM3 TreeConditionExp twoTermExpGen valid valid))
                       , (4, twoTermExpGen)
                       ]
@@ -64,8 +65,25 @@ instance Valid Expression where
           mathExpGen     = liftM3 MathcalcExp valid valid (elements ["+", "-", "&", "/"])
 
 instance Valid Term where
-    valid = liftM NumberTerm valid
+    valid = frequency [ (30, (liftM  NumberLiteral valid))
+                      , (5,  (liftM2 CastTerm valid valid))
+                      , (2,  (liftM2 PrefixCalcTerm valid valid))
+                      , (10, (liftM  TypesizeTerm valid))
+                      , (10, (liftM  SizeTerm valid))
+                      , (2,  (liftM2 PostfixCalcTerm valid valid))
+                      , (5,  (liftM2 ArrayrefTerm valid valid))
+                      , (5,  (liftM2 StructrefTerm valid valid))
+                      , (5,  (liftM2 PointerrefTerm valid valid))
+                      , (5,  (liftM2 FunccallTerm (vectorOf 2 (valid::(Gen Expression))) valid))
+                      , (30, (liftM CharLiteral valid))
+                      , (30, (liftM StringLiteral valid))
+                      , (30, (liftM VarIdentLiteral valid))
+                      , (1,  (liftM ExpLiteral valid))
+                      ]
 
+instance Valid Char where
+    valid = elements ['a'..'z']
+            
 instance Valid String where
     valid = rndStrGen "" 4
 
