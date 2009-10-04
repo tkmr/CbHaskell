@@ -1,12 +1,7 @@
 module CfDataType where
+import qualified CfEntity as E
 import Control.Monad
 import Data.List
-
----Entity
-data Entity = VarEntity EntityBase
-            | ConstEntity EntityBase Type
-
-data EntityBase = EntityBase Name
                 
 ---ImportStatement------
 data ImportStatements = ImportStatements [ImportStatement]
@@ -68,7 +63,7 @@ data Term = CastTerm        TypeRef Term
           | StructrefTerm   Name Term
           | PointerrefTerm  Name Term
           | FunccallTerm    [Expression] Term
-          | VariableTerm    Entity
+          | VariableTerm    Name E.Entity
           | NumberLiteral   Number
           | CharLiteral     Char
           | StringLiteral   String
@@ -97,7 +92,6 @@ data TyperefBase = VoidType
                  | StructType Name
                  | UnionType Name
                  | OriginalType Name
-
                                      
 ----misc-------------
 type Name = String

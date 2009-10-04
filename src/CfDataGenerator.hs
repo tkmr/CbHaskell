@@ -94,7 +94,7 @@ instance Valid Bool where
     valid = elements [ True, False]
 
 instance Valid TypeRef where
-    valid = liftM2 TypeRef valid $ listOf (valid::(Gen TyperefOption))
+    valid = liftM2 Type valid $ listOf (valid::(Gen TyperefOption))
 
 instance Valid TyperefBase where
     valid = elements [CharType, ShortType, IntType, LongType, UnsignedCharType, UnsignedShortType
