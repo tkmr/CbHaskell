@@ -8,37 +8,9 @@ import Data.Map as Map
 import Data.Maybe
 import Data.IORef
 
-class CheckAccepter a  => CheckVisitor a where
-    visit :: Checker -> a -> IO a
-    visit checker target = accept target checker
-
 data Checker = ScopeChecker { checker_scope::(IORef Scope) }
              | TypeChecker
-
-instance CheckVisitor DefFun where
-    visit (ScopeChecker scope) defn = do modifyIORef scope (putScopeBaseToStack $ fromParamsToStackBase $ deffun_params defn)
-                                         accept defn (ScopeChecker scope)
-
-instance CheckVisitor DefVar where
-    visit (ScopeChecker scope) defv = do modifyIORef scope (addVarToScope defv)
-                                         accept defv (ScopeChecker scope)
-
-instance CheckVisitor Block where
-    visit (ScopeChecker scope) block = do modifyIORef scope (putScopeBaseToStack $ ScopeBase [] Map.empty)
-                                          accept block (ScopeChecker scope)
-
-instance CheckVisitor Term where
-    visit (ScopeChecker scope) (VarIdentLiteral name) = do realscope <- readIORef scope
-                                                           return $ VariableTerm name (findEntity realscope name)
-                                                                     
-instance CheckVisitor FuncParams
-instance CheckVisitor Param
-instance CheckVisitor Statement
-instance CheckVisitor Expression
-instance CheckVisitor Type
-instance CheckVisitor TyperefOption
-
------------------------------------------------    
+    
 data Error = ScopeResolveError String
 
 data Scope = TopScope   ScopeBase

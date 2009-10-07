@@ -3,6 +3,8 @@ module CfCheckAccepter where
 import {-# SOURCE #-} CfScopeResolver
 import CfDataType
 import Data.Maybe
+import Data.IORef
+import Data.Map as Map
 
 try f (Left l)  = Left l
 try f (Right r) = f r
@@ -17,7 +19,39 @@ tryAll f []     = do return []
 tryAll f (x:xs) = do newx <- f x
                      remain <- tryAll f xs
                      return (newx:remain)
-                            
+
+--------------------------------------------------------------------
+class CheckAccepter a  => CheckVisitor a where
+    visit :: Checker -> a -> IO a
+    visit checker target = accept target checker
+
+instance CheckVisitor DefFun where
+    visit (ScopeChecker scope) defn = do modifyIORef scope (putScopeBaseToStack $ fromParamsToStackBase $ deffun_params defn)
+                                         accept defn (ScopeChecker scope)
+
+instance CheckVisitor DefVar where
+    visit (ScopeChecker scope) defv = do modifyIORef scope (addVarToScope defv)
+                                         accept defv (ScopeChecker scope)
+
+instance CheckVisitor Block where
+    visit (ScopeChecker scope) block = do modifyIORef scope (putScopeBaseToStack $ ScopeBase [] Map.empty)
+                                          accept block (ScopeChecker scope)
+
+instance CheckVisitor Term where
+    visit (ScopeChecker scope) (VarIdentLiteral name) = do realscope <- readIORef scope
+                                                           return $ VariableTerm name (findEntity realscope name)
+
+instance CheckVisitor DefType
+instance CheckVisitor DefUnion
+instance CheckVisitor DefStruct
+instance CheckVisitor FuncParams
+instance CheckVisitor Param
+instance CheckVisitor Statement
+instance CheckVisitor Expression
+instance CheckVisitor Type
+instance CheckVisitor TyperefOption
+
+--------------------------------------------------------------------                            
 class CheckAccepter a where
     accept :: a -> Checker -> IO a
 
